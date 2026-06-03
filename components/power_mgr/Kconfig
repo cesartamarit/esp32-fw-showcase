@@ -1,0 +1,22 @@
+menu "Power Manager"
+
+    config POWER_MGR_MAX_CPU_FREQ_MHZ
+        int "Maximum CPU frequency (MHz)"
+        default 240
+        help
+            ESP32-S3 supports up to 240 MHz.
+
+    config POWER_MGR_MIN_CPU_FREQ_MHZ
+        int "Minimum CPU frequency (MHz)"
+        default 40
+        help
+            Minimum frequency when idle. Lower = less power.
+
+    config POWER_MGR_DEEP_SLEEP_TIMEOUT_S
+        int "Deep sleep inactivity timeout (seconds)"
+        default 30
+        help
+            Enter deep sleep after this many seconds without activity.
+            Set to 0 to disable automatic deep sleep.
+
+endmenu

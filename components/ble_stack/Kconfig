@@ -1,0 +1,13 @@
+menu "BLE Stack"
+
+    config BLE_DEVICE_NAME
+        string "BLE advertised device name"
+        default "KodeFW"
+        help
+            Name visible when scanning from a phone or nRF Connect.
+
+    config BLE_TASK_STACK_SIZE
+        int "NimBLE host task stack size (bytes)"
+        default 4096
+
+endmenu

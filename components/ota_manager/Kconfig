@@ -1,0 +1,18 @@
+menu "OTA Manager"
+
+    config OTA_MANAGER_FIRMWARE_URL
+        string "Firmware update URL"
+        default "https://example.com/firmware/esp32-fw-showcase.bin"
+        help
+            HTTPS URL where the firmware binary is hosted.
+            Must be HTTPS — HTTP is rejected.
+
+    config OTA_MANAGER_RECV_TIMEOUT_MS
+        int "HTTP receive timeout (ms)"
+        default 5000
+
+    config OTA_MANAGER_TASK_STACK_SIZE
+        int "OTA task stack size (bytes)"
+        default 8192
+
+endmenu
