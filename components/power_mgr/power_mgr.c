@@ -10,14 +10,25 @@
 
 static const char *TAG = "power_mgr";
 
-static TimerHandle_t s_sleep_timer = NULL;
+static TimerHandle_t s_sleep_timer      = NULL;
+static TaskHandle_t  s_sleep_task_handle = NULL;
 
 /* --- Internal --- */
 
-static void on_sleep_timeout(TimerHandle_t timer)
+/* Runs in its own task so esp_deep_sleep_start() doesn't overflow Tmr Svc. */
+static void sleep_entry_task(void *arg)
 {
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     ESP_LOGW(TAG, "inactivity timeout — entering deep sleep");
     power_mgr_enter_deep_sleep(0);
+    vTaskDelete(NULL); /* unreachable */
+}
+
+static void on_sleep_timeout(TimerHandle_t timer)
+{
+    if (s_sleep_task_handle) {
+        xTaskNotifyGive(s_sleep_task_handle);
+    }
 }
 
 static esp_err_t apply_pm_config(power_mode_t mode)
@@ -59,6 +70,9 @@ esp_err_t power_mgr_init(void)
     }
 
     if (CONFIG_POWER_MGR_DEEP_SLEEP_TIMEOUT_S > 0) {
+        xTaskCreate(sleep_entry_task, "sleep_entry", 3072, NULL,
+                    configMAX_PRIORITIES - 1, &s_sleep_task_handle);
+
         s_sleep_timer = xTimerCreate(
             "sleep_watchdog",
             pdMS_TO_TICKS(CONFIG_POWER_MGR_DEEP_SLEEP_TIMEOUT_S * 1000),

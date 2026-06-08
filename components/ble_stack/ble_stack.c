@@ -16,7 +16,9 @@
 #include "host/util/util.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
+#include "store/config/ble_store_config.h"
 #include "sdkconfig.h"
+#include "esp_app_desc.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -103,9 +105,10 @@ static int status_chr_access(uint16_t conn_handle, uint16_t attr_handle,
 
     char buf[128];
     snprintf(buf, sizeof(buf),
-             "{\"fw\":\"" CONFIG_APP_PROJECT_VER "\","
+             "{\"fw\":\"%s\","
              "\"uptime\":%lu,"
              "\"ota\":%d}",
+             esp_app_get_description()->version,
              (unsigned long)(xTaskGetTickCount() / configTICK_RATE_HZ),
              (int)ota_manager_get_state());
 
@@ -138,6 +141,10 @@ static const struct ble_gatt_svc_def s_gatt_svcs[] = {
     },
     { 0 } /* terminator */
 };
+
+/* --- Forward declarations --- */
+
+static int gap_event_cb(struct ble_gap_event *event, void *arg);
 
 /* --- Advertising --- */
 
@@ -248,6 +255,9 @@ esp_err_t ble_stack_init(void)
     ble_hs_cfg.sync_cb  = on_ble_sync;
     ble_hs_cfg.reset_cb = on_ble_reset;
 
+    ble_hs_cfg.store_read_cb   = ble_store_config_read;
+    ble_hs_cfg.store_write_cb  = ble_store_config_write;
+    ble_hs_cfg.store_delete_cb = ble_store_config_delete;
     ble_svc_gap_init();
     ble_svc_gatt_init();
 
@@ -272,9 +282,10 @@ void ble_stack_notify_status(void)
 
     char buf[128];
     snprintf(buf, sizeof(buf),
-             "{\"fw\":\"" CONFIG_APP_PROJECT_VER "\","
+             "{\"fw\":\"%s\","
              "\"uptime\":%lu,"
              "\"ota\":%d}",
+             esp_app_get_description()->version,
              (unsigned long)(xTaskGetTickCount() / configTICK_RATE_HZ),
              (int)ota_manager_get_state());
 

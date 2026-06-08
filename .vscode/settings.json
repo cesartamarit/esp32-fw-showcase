@@ -1,0 +1,10 @@
+{
+    "idf.espIdfPath": "/Users/cesartamarit/.espressif/v6.0.1/esp-idf",
+    "idf.toolsPath": "/Users/cesartamarit/.espressif",
+    "idf.pythonInstallPath": "/Users/cesartamarit/.espressif/python_env/idf6.0_py3.12_env",
+    "idf.port": "/dev/cu.usbmodem5AE70710571",
+    "idf.adapterTargetName": "esp32s3",
+    "idf.flashBaudRate": "460800",
+    "idf.currentSetup": "/Users/cesartamarit/.espressif/v6.0.1/esp-idf",
+    "idf.flashType": "UART"
+}

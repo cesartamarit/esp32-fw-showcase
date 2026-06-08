@@ -19,4 +19,9 @@ void app_main(void)
     ble_stack_init();
 
     ESP_LOGI(TAG, "all subsystems up — entering task loop");
+
+    /* Keep the main task alive so the scheduler always has a runnable task. */
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(10000));
+    }
 }
