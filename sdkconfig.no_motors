@@ -1,3 +1,0 @@
-# OTA demo overlay: disable motors to build the "before" firmware
-# Usage:  idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.no_motors" build
-CONFIG_MOTORS_ENABLED=n

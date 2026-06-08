@@ -39,5 +39,5 @@ CONFIG_POWER_MGR_WAKE_GPIO=6
 # Logging
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 
-# Motors — set to y to enable servo + stepper (see OTA demo in README)
-CONFIG_MOTORS_ENABLED=n
+# Motors — servo + stepper enabled
+CONFIG_MOTORS_ENABLED=y
