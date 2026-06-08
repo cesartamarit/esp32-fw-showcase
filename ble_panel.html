@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KodeFW · BLE Panel</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .panel {
+      width: 100%;
+      max-width: 420px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── header ── */
+    .header { display: flex; align-items: center; gap: 12px; }
+    .dot {
+      width: 11px; height: 11px;
+      border-radius: 50%;
+      background: #484f58;
+      flex-shrink: 0;
+      transition: background .3s, box-shadow .3s;
+    }
+    .dot.on  { background: #3fb950; box-shadow: 0 0 8px #3fb95066; }
+    .dot.err { background: #f85149; }
+    .h-title { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+    .h-sub   { font-size: 12px; color: #8b949e; margin-top: 2px; }
+
+    /* ── connect button ── */
+    .btn-connect {
+      width: 100%;
+      padding: 10px 16px;
+      background: #238636;
+      border: 1px solid #2ea04326;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-connect:hover { background: #2ea043; }
+    .btn-connect.disconnecting { background: #b62324; border-color: #f8514926; }
+    .btn-connect.disconnecting:hover { background: #da3633; }
+
+    /* ── card ── */
+    .card {
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .card-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #8b949e;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── status rows ── */
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      padding: 5px 0;
+      border-bottom: 1px solid #21262d;
+    }
+    .stat-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .stat-k { color: #8b949e; }
+    .stat-v { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #79c0ff; }
+    .stat-v.dim { color: #484f58; }
+    .stat-v.ok  { color: #3fb950; }
+    .stat-v.warn { color: #d29922; }
+    .stat-v.err { color: #f85149; }
+
+    /* ── OTA progress bar ── */
+    .ota-bar-wrap {
+      margin-top: 6px;
+      background: #21262d;
+      border-radius: 3px;
+      height: 4px;
+      overflow: hidden;
+    }
+    .ota-bar {
+      height: 100%;
+      background: #1f6feb;
+      border-radius: 3px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+
+    /* ── command grid ── */
+    .cmd-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .btn-cmd {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 10px 8px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .12s, border-color .12s, transform .08s;
+      white-space: nowrap;
+    }
+    .btn-cmd:hover:not(:disabled) { background: #30363d; border-color: #8b949e; }
+    .btn-cmd:active:not(:disabled) { transform: scale(.96); }
+    .btn-cmd:disabled { opacity: .28; cursor: default; }
+    .btn-cmd.red { color: #f85149; border-color: #da363344; }
+    .btn-cmd.red:hover:not(:disabled) { background: #da363318; border-color: #f85149; }
+    .btn-cmd.green { color: #3fb950; border-color: #3fb95044; }
+    .btn-cmd.green:hover:not(:disabled) { background: #3fb95018; border-color: #3fb950; }
+    .btn-cmd .icon { font-size: 14px; line-height: 1; }
+
+    /* ── capability badge ── */
+    .cap-badge {
+      display: inline-block;
+      background: #6e4000;
+      color: #e3b341;
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 10px;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .cap-badge.ok-badge {
+      background: #1a4d25;
+      color: #3fb950;
+    }
+
+    /* ── motor state dots ── */
+    .motor-state {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #484f58;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    .motor-state.running { background: #3fb950; box-shadow: 0 0 5px #3fb95066; }
+
+    /* ── log ── */
+    .log {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      height: 72px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .log::-webkit-scrollbar { width: 4px; }
+    .log::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+    .le     { color: #8b949e; }
+    .le.ok  { color: #3fb950; }
+    .le.err { color: #f85149; }
+    .le.inf { color: #79c0ff; }
+    .ts     { color: #484f58; margin-right: 6px; }
+  </style>
+</head>
+<body>
+<div class="panel">
+
+  <!-- header -->
+  <div class="header">
+    <div class="dot" id="dot"></div>
+    <div>
+      <div class="h-title">KodeFW BLE Panel</div>
+      <div class="h-sub" id="sub">Ready to connect · Chrome required</div>
+    </div>
+  </div>
+
+  <!-- connect -->
+  <button class="btn-connect" id="btnConn" onclick="toggle()">Connect via Bluetooth</button>
+
+  <!-- device status -->
+  <div class="card">
+    <div class="card-label">Device</div>
+    <div class="stat-row">
+      <span class="stat-k">Firmware</span>
+      <span class="stat-v dim" id="s-fw">—</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-k">Uptime</span>
+      <span class="stat-v dim" id="s-up">—</span>
+    </div>
+    <div class="stat-row" style="flex-wrap:wrap; gap:4px">
+      <span class="stat-k">OTA</span>
+      <span class="stat-v dim" id="s-ota">—</span>
+      <div class="ota-bar-wrap" id="ota-bar-wrap" style="display:none; width:100%; margin-top:6px">
+        <div class="ota-bar" id="ota-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- system commands -->
+  <div class="card">
+    <div class="card-label">System</div>
+    <div class="cmd-grid">
+      <button class="btn-cmd" id="c1" disabled onclick="cmd(0x01)">
+        <span class="icon">💡</span> LED ON
+      </button>
+      <button class="btn-cmd" id="c2" disabled onclick="cmd(0x02)">
+        <span class="icon">🌑</span> LED OFF
+      </button>
+      <button class="btn-cmd" id="c3" disabled onclick="cmd(0x03)">
+        <span class="icon">⬆️</span> OTA Update
+      </button>
+      <button class="btn-cmd red" id="c4" disabled onclick="cmd(0x04)">
+        <span class="icon">😴</span> Deep sleep
+      </button>
+    </div>
+  </div>
+
+  <!-- motors -->
+  <div class="card" id="card-motors">
+    <div class="card-label">
+      Motors
+      <span class="cap-badge" id="motors-badge" style="display:none">⚠ OTA to enable</span>
+    </div>
+    <div class="cmd-grid">
+      <button class="btn-cmd green" id="c5" disabled onclick="cmd(0x05)"
+              title="Start servo ping-pong">
+        <span class="motor-state" id="dot-srv"></span> Servo ▶
+      </button>
+      <button class="btn-cmd" id="c6" disabled onclick="cmd(0x06)"
+              title="Stop servo">
+        <span class="icon">■</span> Servo ■
+      </button>
+      <button class="btn-cmd green" id="c7" disabled onclick="cmd(0x07)"
+              title="Start stepper motor">
+        <span class="motor-state" id="dot-stp"></span> Stepper ▶
+      </button>
+      <button class="btn-cmd" id="c8" disabled onclick="cmd(0x08)"
+              title="Stop stepper motor">
+        <span class="icon">■</span> Stepper ■
+      </button>
+    </div>
+  </div>
+
+  <!-- log -->
+  <div class="log" id="log"></div>
+
+</div>
+<script>
+  const SVC = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+  const CMD = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+  const STA = 'cba1d466-344c-4be3-ab3f-189f80dd7518';
+
+  const CMD_NAMES = {
+    0x01:'LED ON',       0x02:'LED OFF',
+    0x03:'OTA update',   0x04:'Deep sleep',
+    0x05:'Servo start',  0x06:'Servo stop',
+    0x07:'Stepper start',0x08:'Stepper stop'
+  };
+  const OTA_LABELS = ['Idle', 'Downloading', 'Verifying', 'Rebooting…', 'Failed'];
+  const OTA_CLASS  = ['',     'inf',          'inf',       'warn',       'err'];
+
+  let device = null, cmdChar = null, hasMotors = false;
+
+  function ts() {
+    const d = new Date();
+    return [d.getHours(), d.getMinutes(), d.getSeconds()]
+      .map(n => String(n).padStart(2,'0')).join(':');
+  }
+
+  function log(msg, type = '') {
+    const el = document.getElementById('log');
+    el.insertAdjacentHTML('beforeend',
+      `<div class="le ${type}"><span class="ts">${ts()}</span>${msg}</div>`);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setUI(connected, name = '') {
+    const dot = document.getElementById('dot');
+    const sub = document.getElementById('sub');
+    const btn = document.getElementById('btnConn');
+    dot.className = 'dot' + (connected ? ' on' : '');
+    sub.textContent = connected ? name : 'Disconnected';
+    btn.textContent = connected ? 'Disconnect' : 'Connect via Bluetooth';
+    btn.className   = connected ? 'btn-connect disconnecting' : 'btn-connect';
+    ['c1','c2','c3','c4'].forEach(id =>
+      document.getElementById(id).disabled = !connected);
+    /* Motor buttons remain disabled until first status update reveals capability */
+    ['c5','c6','c7','c8'].forEach(id =>
+      document.getElementById(id).disabled = true);
+    if (!connected) {
+      hasMotors = false;
+      ['s-fw','s-up','s-ota'].forEach(id => {
+        const el = document.getElementById(id);
+        el.textContent = '—'; el.className = 'stat-v dim';
+      });
+      document.getElementById('ota-bar-wrap').style.display = 'none';
+      document.getElementById('motors-badge').style.display = 'none';
+      ['dot-srv','dot-stp'].forEach(id =>
+        document.getElementById(id).className = 'motor-state');
+    }
+  }
+
+  function updateStatus(value) {
+    try {
+      const j = JSON.parse(new TextDecoder().decode(value));
+
+      const set = (id, val, cls = '') => {
+        const el = document.getElementById(id);
+        el.textContent  = val;
+        el.className    = 'stat-v' + (cls ? ' ' + cls : '');
+      };
+
+      /* Firmware */
+      set('s-fw', j.fw ?? '—');
+
+      /* Uptime */
+      const u = j.uptime ?? 0;
+      const fmt = (u >= 3600 ? Math.floor(u/3600)+'h ' : '')
+                + (u >= 60   ? Math.floor((u%3600)/60)+'m ' : '')
+                + (u%60) + 's';
+      set('s-up', fmt);
+
+      /* OTA state + progress bar */
+      const ota  = j.ota ?? 0;
+      const pct  = j.pct ?? 0;
+      let otaTxt = OTA_LABELS[ota] ?? String(ota);
+      if (ota === 1) otaTxt = pct > 0 ? `Downloading ${pct}%` : 'Downloading…';
+      set('s-ota', otaTxt, OTA_CLASS[ota] ?? '');
+      const barWrap = document.getElementById('ota-bar-wrap');
+      if (ota === 1) {
+        barWrap.style.display = 'block';
+        document.getElementById('ota-bar').style.width = pct + '%';
+      } else {
+        barWrap.style.display = 'none';
+      }
+      if (ota === 3) {
+        log('Device rebooting — wait ~10s then reconnect', 'warn');
+      }
+
+      /* Motor capability */
+      hasMotors = j.motors === 1;
+      const badge = document.getElementById('motors-badge');
+      if (!hasMotors) {
+        badge.style.display = 'inline';
+        badge.className = 'cap-badge';
+        badge.textContent = '⚠ OTA to enable';
+        ['c5','c6','c7','c8'].forEach(id => {
+          const btn = document.getElementById(id);
+          btn.disabled = true;
+          btn.title = 'Not available in this firmware — trigger OTA Update to enable motors';
+        });
+      } else {
+        badge.style.display = 'none';
+        document.getElementById('c5').disabled = false;
+        document.getElementById('c6').disabled = false;
+        document.getElementById('c7').disabled = false;
+        document.getElementById('c8').disabled = false;
+      }
+
+      /* Motor running state dots */
+      document.getElementById('dot-srv').className =
+        'motor-state' + (j.srv ? ' running' : '');
+      document.getElementById('dot-stp').className =
+        'motor-state' + (j.stp ? ' running' : '');
+
+    } catch(e) { log('Parse error: ' + e.message, 'err'); }
+  }
+
+  async function toggle() {
+    if (device) { device.gatt.disconnect(); return; }
+    try {
+      log('Scanning for BLE devices…', 'inf');
+      device = await navigator.bluetooth.requestDevice({
+        filters: [{ name: 'KodeFW' }],
+        optionalServices: [SVC]
+      });
+      device.addEventListener('gattserverdisconnected', () => {
+        setUI(false);
+        device = null; cmdChar = null;
+        log('Device disconnected', 'err');
+      });
+      log(`Connecting to "${device.name}"…`, 'inf');
+      const server  = await device.gatt.connect();
+      const service = await server.getPrimaryService(SVC);
+      cmdChar        = await service.getCharacteristic(CMD);
+      const staChr   = await service.getCharacteristic(STA);
+
+      updateStatus(await staChr.readValue());
+
+      await staChr.startNotifications();
+      staChr.addEventListener('characteristicvaluechanged', e => {
+        updateStatus(e.target.value);
+        log('Status updated', 'ok');
+      });
+
+      setUI(true, device.name);
+      log(`Connected — ${device.name}`, 'ok');
+    } catch(e) {
+      document.getElementById('dot').className = 'dot err';
+      log(e.message, 'err');
+      setTimeout(() => {
+        if (!device) document.getElementById('dot').className = 'dot';
+      }, 1500);
+      device = null; cmdChar = null;
+    }
+  }
+
+  async function cmd(byte) {
+    if (!cmdChar) return;
+    if ([0x05,0x06,0x07,0x08].includes(byte) && !hasMotors) {
+      log('Motors not supported in this firmware — run OTA first', 'err');
+      return;
+    }
+    try {
+      await cmdChar.writeValueWithoutResponse(new Uint8Array([byte]));
+      log(`CMD → ${CMD_NAMES[byte]} (0x${byte.toString(16).padStart(2,'0')})`, 'ok');
+    } catch(e) { log('Error: ' + e.message, 'err'); }
+  }
+</script>
+</body>
+</html>

@@ -2,28 +2,34 @@
 
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
+#include "led_strip.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
 
 static const char *TAG = "bsp";
 
-static i2c_master_bus_handle_t s_i2c_bus = NULL;
-static bool s_led_state = false;
+static i2c_master_bus_handle_t s_i2c_bus  = NULL;
+static led_strip_handle_t      s_led      = NULL;
+static bool                    s_led_state = false;
 
 /* --- Init --- */
 
 static esp_err_t init_led(void)
 {
-    gpio_config_t cfg = {
-        .pin_bit_mask = (1ULL << CONFIG_BSP_LED_GPIO),
-        .mode         = GPIO_MODE_OUTPUT,
-        .pull_up_en   = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type    = GPIO_INTR_DISABLE,
+    led_strip_config_t strip_cfg = {
+        .strip_gpio_num = CONFIG_BSP_LED_GPIO,
+        .max_leds       = 1,
+        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
+        .led_model      = LED_MODEL_WS2812,
+        .flags.invert_out = false,
     };
-    esp_err_t ret = gpio_config(&cfg);
+    led_strip_rmt_config_t rmt_cfg = {
+        .resolution_hz = 10 * 1000 * 1000,  /* 10 MHz */
+        .flags.with_dma = false,
+    };
+    esp_err_t ret = led_strip_new_rmt_device(&strip_cfg, &rmt_cfg, &s_led);
     if (ret == ESP_OK) {
-        gpio_set_level(CONFIG_BSP_LED_GPIO, 0);
+        led_strip_clear(s_led);  /* off at boot */
     }
     return ret;
 }
@@ -33,7 +39,7 @@ static esp_err_t init_button(void)
     gpio_config_t cfg = {
         .pin_bit_mask = (1ULL << CONFIG_BSP_BUTTON_GPIO),
         .mode         = GPIO_MODE_INPUT,
-        .pull_up_en   = GPIO_PULLUP_ENABLE,   /* button pulls to GND when pressed */
+        .pull_up_en   = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type    = GPIO_INTR_DISABLE,
     };
@@ -77,7 +83,7 @@ esp_err_t bsp_init(void)
         return ret;
     }
 
-    ESP_LOGI(TAG, "board ready — LED GPIO%d, BTN GPIO%d, I2C SDA%d/SCL%d @ %dHz",
+    ESP_LOGI(TAG, "board ready — LED GPIO%d (WS2812), BTN GPIO%d, I2C SDA%d/SCL%d @ %dHz",
              CONFIG_BSP_LED_GPIO, CONFIG_BSP_BUTTON_GPIO,
              CONFIG_BSP_I2C_SDA_GPIO, CONFIG_BSP_I2C_SCL_GPIO,
              CONFIG_BSP_I2C_FREQ_HZ);
@@ -90,7 +96,12 @@ esp_err_t bsp_init(void)
 esp_err_t bsp_led_set(bool on)
 {
     s_led_state = on;
-    return gpio_set_level(CONFIG_BSP_LED_GPIO, on ? 1 : 0);
+    if (on) {
+        led_strip_set_pixel(s_led, 0, 16, 16, 16);  /* white, ~6% brightness */
+        return led_strip_refresh(s_led);
+    } else {
+        return led_strip_clear(s_led);
+    }
 }
 
 esp_err_t bsp_led_toggle(void)
@@ -102,7 +113,6 @@ esp_err_t bsp_led_toggle(void)
 
 bool bsp_button_is_pressed(void)
 {
-    /* active low: button pulls GPIO to GND when pressed */
     return gpio_get_level(CONFIG_BSP_BUTTON_GPIO) == 0;
 }
 

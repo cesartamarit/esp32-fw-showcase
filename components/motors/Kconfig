@@ -1,0 +1,33 @@
+menu "Motors Configuration"
+
+    config MOTORS_ENABLED
+        bool "Enable motors (servo + stepper)"
+        default y
+        help
+            When disabled, motors_init() is a no-op and all motor BLE commands
+            are silently ignored.  Set to n to build the 'no-motors' binary used
+            in the OTA update demo.
+
+    config MOTORS_SERVO_GPIO
+        int "Servo signal GPIO"
+        default 15
+        help
+            GPIO connected to the servo signal wire (orange/yellow).
+
+    config MOTORS_STEPPER_IN1_GPIO
+        int "Stepper IN1 GPIO"
+        default 11
+
+    config MOTORS_STEPPER_IN2_GPIO
+        int "Stepper IN2 GPIO"
+        default 12
+
+    config MOTORS_STEPPER_IN3_GPIO
+        int "Stepper IN3 GPIO"
+        default 13
+
+    config MOTORS_STEPPER_IN4_GPIO
+        int "Stepper IN4 GPIO"
+        default 14
+
+endmenu

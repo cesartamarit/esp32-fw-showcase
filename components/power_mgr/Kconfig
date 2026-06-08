@@ -19,4 +19,13 @@ menu "Power Manager"
             Enter deep sleep after this many seconds without activity.
             Set to 0 to disable automatic deep sleep.
 
+    config POWER_MGR_WAKE_GPIO
+        int "Deep sleep wakeup GPIO"
+        default 6
+        help
+            GPIO used to wake the device from deep sleep (active low).
+            Avoid GPIO0: the USB-UART auto-reset circuit (DTR) can
+            drive it LOW while a serial terminal is open, causing
+            an immediate spurious wakeup.
+
 endmenu

@@ -1,8 +1,11 @@
 #include "ota_manager.h"
+#include "wifi_mgr.h"
+#include "power_mgr.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_https_ota.h"
+#include "esp_crt_bundle.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "nvs_flash.h"
@@ -28,10 +31,21 @@ static void ota_task(void *arg)
     ESP_LOGI(TAG, "starting OTA from: %s", CONFIG_OTA_MANAGER_FIRMWARE_URL);
     set_state(OTA_STATE_DOWNLOADING);
 
+    power_mgr_block_sleep();  /* prevent deep sleep while updating */
+
+    if (wifi_mgr_connect(20000) != ESP_OK) {
+        ESP_LOGE(TAG, "WiFi unavailable — OTA aborted");
+        set_state(OTA_STATE_FAILED);
+        power_mgr_unblock_sleep();
+        vTaskDelete(NULL);
+        return;
+    }
+
     esp_http_client_config_t http_cfg = {
-        .url             = CONFIG_OTA_MANAGER_FIRMWARE_URL,
-        .timeout_ms      = CONFIG_OTA_MANAGER_RECV_TIMEOUT_MS,
+        .url               = CONFIG_OTA_MANAGER_FIRMWARE_URL,
+        .timeout_ms        = CONFIG_OTA_MANAGER_RECV_TIMEOUT_MS,
         .keep_alive_enable = true,
+        .crt_bundle_attach = esp_crt_bundle_attach,  /* verify HTTPS with Mozilla CA bundle */
     };
 
     esp_https_ota_config_t ota_cfg = {
@@ -43,6 +57,7 @@ static void ota_task(void *arg)
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "OTA begin failed: %s", esp_err_to_name(ret));
         set_state(OTA_STATE_FAILED);
+        power_mgr_unblock_sleep();
         vTaskDelete(NULL);
         return;
     }
@@ -69,6 +84,7 @@ static void ota_task(void *arg)
         ESP_LOGE(TAG, "OTA perform failed: %s", esp_err_to_name(ret));
         esp_https_ota_abort(handle);
         set_state(OTA_STATE_FAILED);
+        power_mgr_unblock_sleep();
         vTaskDelete(NULL);
         return;
     }
@@ -78,12 +94,14 @@ static void ota_task(void *arg)
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "OTA finish failed: %s", esp_err_to_name(ret));
         set_state(OTA_STATE_FAILED);
+        power_mgr_unblock_sleep();
         vTaskDelete(NULL);
         return;
     }
 
     ESP_LOGI(TAG, "OTA successful — rebooting in 3s");
     set_state(OTA_STATE_REBOOTING);
+    /* No unblock needed here — device reboots and block_count resets to 0 */
     vTaskDelay(pdMS_TO_TICKS(3000));
     esp_restart();
 }

@@ -2,10 +2,12 @@ menu "OTA Manager"
 
     config OTA_MANAGER_FIRMWARE_URL
         string "Firmware update URL"
-        default "https://example.com/firmware/esp32-fw-showcase.bin"
+        default "http://192.168.1.100:8080/firmware_motors.bin"
         help
-            HTTPS URL where the firmware binary is hosted.
-            Must be HTTPS — HTTP is rejected.
+            URL where the firmware binary is hosted.
+            For local demo: run 'python3 -m http.server 8080' in the build dir
+            and set this to http://<your-laptop-IP>:8080/<binary-name>.
+            For production: use an HTTPS URL (GitHub Releases, S3, etc.).
 
     config OTA_MANAGER_RECV_TIMEOUT_MS
         int "HTTP receive timeout (ms)"

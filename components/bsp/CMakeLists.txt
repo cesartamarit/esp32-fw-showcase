@@ -1,5 +1,5 @@
 idf_component_register(
     SRCS "bsp.c"
     INCLUDE_DIRS "include"
-    REQUIRES driver esp_driver_gpio esp_driver_i2c
+    REQUIRES driver esp_driver_gpio esp_driver_i2c led_strip
 )

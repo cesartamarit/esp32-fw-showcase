@@ -3,6 +3,7 @@
 #include "bsp.h"
 #include "power_mgr.h"
 #include "ota_manager.h"
+#include "motors.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -10,6 +11,7 @@
 #include "esp_log.h"
 #include "esp_nimble_hci.h"
 #include "nimble/nimble_port.h"
+#include "esp_bt.h"
 #include "nimble/nimble_port_freertos.h"
 #include "host/ble_hs.h"
 #include "host/ble_uuid.h"
@@ -17,6 +19,7 @@
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
 #include "store/config/ble_store_config.h"
+#include "menu_mgr.h"
 #include "sdkconfig.h"
 #include "esp_app_desc.h"
 
@@ -48,10 +51,22 @@ static uint16_t s_conn_handle   = BLE_HS_CONN_HANDLE_NONE;
 static uint16_t s_status_handle = 0;
 
 /* --- Command byte definitions --- */
-#define CMD_LED_ON      0x01
-#define CMD_LED_OFF     0x02
-#define CMD_OTA_UPDATE  0x03
-#define CMD_DEEP_SLEEP  0x04
+#define CMD_LED_ON        0x01
+#define CMD_LED_OFF       0x02
+#define CMD_OTA_UPDATE    0x03
+#define CMD_DEEP_SLEEP    0x04
+#define CMD_SERVO_START   0x05
+#define CMD_SERVO_STOP    0x06
+#define CMD_STEPPER_START 0x07
+#define CMD_STEPPER_STOP  0x08
+
+static int s_ota_pct = 0;
+
+static void on_ota_progress(ota_state_t state, int pct)
+{
+    s_ota_pct = pct;
+    ble_stack_notify_status();
+}
 
 /* --- GATT handlers --- */
 
@@ -74,18 +89,43 @@ static int cmd_chr_access(uint16_t conn_handle, uint16_t attr_handle,
         case CMD_LED_ON:
             ESP_LOGI(TAG, "CMD: LED ON");
             bsp_led_set(true);
+            menu_mgr_set_ble_last_cmd("LED:ON");
             break;
         case CMD_LED_OFF:
             ESP_LOGI(TAG, "CMD: LED OFF");
             bsp_led_set(false);
+            menu_mgr_set_ble_last_cmd("LED:OFF");
             break;
         case CMD_OTA_UPDATE:
             ESP_LOGI(TAG, "CMD: OTA update triggered via BLE");
-            ota_manager_start_update(NULL);
+            menu_mgr_set_ble_last_cmd("OTA");
+            s_ota_pct = 0;
+            ota_manager_start_update(on_ota_progress);
             break;
         case CMD_DEEP_SLEEP:
             ESP_LOGW(TAG, "CMD: entering deep sleep via BLE request");
-            power_mgr_enter_deep_sleep(0);
+            menu_mgr_set_ble_last_cmd("SLEEP");
+            power_mgr_request_sleep();  /* routes through pre-sleep cb so BLE stops cleanly */
+            break;
+        case CMD_SERVO_START:
+            ESP_LOGI(TAG, "CMD: servo start");
+            motors_start_servo();
+            menu_mgr_set_ble_last_cmd("SRV:ON");
+            break;
+        case CMD_SERVO_STOP:
+            ESP_LOGI(TAG, "CMD: servo stop");
+            motors_stop_servo();
+            menu_mgr_set_ble_last_cmd("SRV:OFF");
+            break;
+        case CMD_STEPPER_START:
+            ESP_LOGI(TAG, "CMD: stepper start");
+            motors_start_stepper();
+            menu_mgr_set_ble_last_cmd("STP:ON");
+            break;
+        case CMD_STEPPER_STOP:
+            ESP_LOGI(TAG, "CMD: stepper stop");
+            motors_stop_stepper();
+            menu_mgr_set_ble_last_cmd("STP:OFF");
             break;
         default:
             ESP_LOGW(TAG, "CMD: unknown command 0x%02x", cmd);
@@ -96,6 +136,20 @@ static int cmd_chr_access(uint16_t conn_handle, uint16_t attr_handle,
     return 0;
 }
 
+static void build_status_json(char *buf, size_t len)
+{
+    snprintf(buf, len,
+             "{\"fw\":\"%s\",\"uptime\":%lu,"
+             "\"ota\":%d,\"pct\":%d,"
+             "\"motors\":%d,\"srv\":%d,\"stp\":%d}",
+             esp_app_get_description()->version,
+             (unsigned long)(xTaskGetTickCount() / configTICK_RATE_HZ),
+             (int)ota_manager_get_state(), s_ota_pct,
+             motors_enabled()         ? 1 : 0,
+             motors_servo_running()   ? 1 : 0,
+             motors_stepper_running() ? 1 : 0);
+}
+
 static int status_chr_access(uint16_t conn_handle, uint16_t attr_handle,
                               struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
@@ -103,14 +157,8 @@ static int status_chr_access(uint16_t conn_handle, uint16_t attr_handle,
         return BLE_ATT_ERR_READ_NOT_PERMITTED;
     }
 
-    char buf[128];
-    snprintf(buf, sizeof(buf),
-             "{\"fw\":\"%s\","
-             "\"uptime\":%lu,"
-             "\"ota\":%d}",
-             esp_app_get_description()->version,
-             (unsigned long)(xTaskGetTickCount() / configTICK_RATE_HZ),
-             (int)ota_manager_get_state());
+    char buf[160];
+    build_status_json(buf, sizeof(buf));
 
     int rc = os_mbuf_append(ctxt->om, buf, strlen(buf));
     return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
@@ -189,6 +237,7 @@ static int gap_event_cb(struct ble_gap_event *event, void *arg)
                 s_conn_handle = event->connect.conn_handle;
                 ESP_LOGI(TAG, "central connected (handle=%d)", s_conn_handle);
                 power_mgr_set_mode(POWER_MODE_ACTIVE);
+                menu_mgr_set_ble_status(true);
             } else {
                 s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
                 ESP_LOGW(TAG, "connection failed (status=%d)", event->connect.status);
@@ -200,6 +249,7 @@ static int gap_event_cb(struct ble_gap_event *event, void *arg)
             ESP_LOGI(TAG, "central disconnected (reason=%d)", event->disconnect.reason);
             s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
             power_mgr_set_mode(POWER_MODE_BALANCED);
+            menu_mgr_set_ble_status(false);
             start_advertising();
             break;
 
@@ -280,14 +330,8 @@ void ble_stack_notify_status(void)
         return;
     }
 
-    char buf[128];
-    snprintf(buf, sizeof(buf),
-             "{\"fw\":\"%s\","
-             "\"uptime\":%lu,"
-             "\"ota\":%d}",
-             esp_app_get_description()->version,
-             (unsigned long)(xTaskGetTickCount() / configTICK_RATE_HZ),
-             (int)ota_manager_get_state());
+    char buf[160];
+    build_status_json(buf, sizeof(buf));
 
     struct os_mbuf *om = ble_hs_mbuf_from_flat(buf, strlen(buf));
     if (om) {
@@ -298,4 +342,44 @@ void ble_stack_notify_status(void)
 bool ble_stack_is_connected(void)
 {
     return s_conn_handle != BLE_HS_CONN_HANDLE_NONE;
+}
+
+void ble_stack_stop(void)
+{
+    if (s_conn_handle != BLE_HS_CONN_HANDLE_NONE) {
+        ble_gap_terminate(s_conn_handle, BLE_ERR_REM_USER_CONN_TERM);
+        vTaskDelay(pdMS_TO_TICKS(300));  /* brief wait for disconnect */
+    } else {
+        ble_gap_adv_stop();
+    }
+
+    nimble_port_stop();
+
+    /* Wait for NimBLE host task to finish its stop sequence.
+     * sleep_entry_task now runs at low priority (tskIDLE_PRIORITY+5), so the
+     * NimBLE host (at ~priority 20) preempts us here and processes the stop
+     * commands immediately — no artificial vTaskDelay needed for that.
+     * We still wait 1 s to ensure the host task has deleted itself before we
+     * touch the controller underneath it. */
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    /* Directly shut down the BLE hardware controller.
+     * nimble_port_deinit() wraps this but can silently fail if the port
+     * internal state is unexpected. Calling the controller API directly is
+     * the authoritative way to remove the BLE RTC advertising timer that
+     * would otherwise fire within ~100 ms of deep sleep entry and wake the
+     * device immediately. */
+    if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_ENABLED) {
+        if (esp_bt_controller_disable() != ESP_OK) {
+            ESP_LOGW(TAG, "bt controller disable failed");
+        }
+    }
+    if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_INITED) {
+        if (esp_bt_controller_deinit() != ESP_OK) {
+            ESP_LOGW(TAG, "bt controller deinit failed");
+        }
+    }
+
+    ESP_LOGI(TAG, "BLE stack fully stopped (controller status: %d)",
+             (int)esp_bt_controller_get_status());
 }

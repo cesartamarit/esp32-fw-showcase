@@ -1,0 +1,15 @@
+menu "Rotary Encoder"
+
+    config ENCODER_CLK_GPIO
+        int "Encoder CLK (A) GPIO"
+        default 4
+
+    config ENCODER_DT_GPIO
+        int "Encoder DT (B) GPIO"
+        default 5
+
+    config ENCODER_SW_GPIO
+        int "Encoder SW (button) GPIO"
+        default 6
+
+endmenu

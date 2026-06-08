@@ -33,6 +33,14 @@ void ble_stack_notify_status(void);
 /** Returns true if a central is currently connected. */
 bool ble_stack_is_connected(void);
 
+/**
+ * Stop advertising/connections and deinit NimBLE.
+ * Must be called before entering deep sleep; the BLE controller registers
+ * its own RTC timer wakeup for the advertising interval that would otherwise
+ * wake the device almost immediately after deep sleep starts.
+ */
+void ble_stack_stop(void);
+
 #ifdef __cplusplus
 }
 #endif
