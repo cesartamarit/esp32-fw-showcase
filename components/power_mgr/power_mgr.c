@@ -129,7 +129,7 @@ esp_err_t power_mgr_init(void)
              * No BLE, no motors, no display yet: clean re-entry. */
             ESP_LOGW(TAG, "spurious wakeup — re-entering deep sleep");
             esp_sleep_enable_ext1_wakeup(1ULL << CONFIG_POWER_MGR_WAKE_GPIO,
-                                         ESP_EXT1_WAKEUP_ANY_LOW);
+                                         ESP_EXT1_WAKEUP_ALL_LOW);
             esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
             esp_deep_sleep_start();  /* does not return */
         }
@@ -222,7 +222,7 @@ void power_mgr_enter_deep_sleep(uint32_t wake_after_s)
     }
 
     esp_sleep_enable_ext1_wakeup(1ULL << CONFIG_POWER_MGR_WAKE_GPIO,
-                                 ESP_EXT1_WAKEUP_ANY_LOW);
+                                 ESP_EXT1_WAKEUP_ALL_LOW);
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
 
     if (wake_after_s > 0) {

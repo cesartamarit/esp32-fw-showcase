@@ -20,7 +20,7 @@ jobs:
       - name: Setup ESP-IDF
         uses: espressif/esp-idf-ci-action@v1
         with:
-          esp_idf_version: v5.4.1
+          esp_idf_version: v6.0.1
           target: esp32s3
           command: idf.py build
 
@@ -49,7 +49,7 @@ jobs:
       - name: Build and check size
         uses: espressif/esp-idf-ci-action@v1
         with:
-          esp_idf_version: v5.4.1
+          esp_idf_version: v6.0.1
           target: esp32s3
           command: |
             idf.py build
