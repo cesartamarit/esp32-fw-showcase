@@ -3,6 +3,7 @@ name: Firmware CI
 on:
   push:
     branches: [main, develop]
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -15,6 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: recursive
 
       - name: Setup ESP-IDF
@@ -44,6 +46,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: recursive
 
       - name: Build and check size
@@ -85,3 +88,42 @@ jobs:
             -I components/ota_manager/include \
             -I components/power_mgr/include \
             components/ main/
+
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download firmware artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware-${{ github.sha }}
+          path: firmware/
+
+      - name: Rename binaries with version tag
+        run: |
+          TAG=${GITHUB_REF_NAME}
+          mv firmware/esp32-fw-showcase.bin      firmware/esp32-fw-showcase-${TAG}.bin
+          mv firmware/esp32-fw-showcase.elf      firmware/esp32-fw-showcase-${TAG}.elf
+          mv firmware/bootloader/bootloader.bin  firmware/bootloader-${TAG}.bin
+          mv firmware/partition_table/partition-table.bin firmware/partition-table-${TAG}.bin
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            firmware/esp32-fw-showcase-*.bin
+            firmware/esp32-fw-showcase-*.elf
+            firmware/bootloader-*.bin
+            firmware/partition-table-*.bin
