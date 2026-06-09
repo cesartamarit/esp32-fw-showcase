@@ -44,5 +44,5 @@ CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 # OTA — firmware URL for next release (used when OTA Update is triggered)
 CONFIG_OTA_MANAGER_FIRMWARE_URL="https://github.com/cesartamarit/esp32-fw-showcase/releases/download/v1.5.0/esp32-fw-showcase-v1.5.0.bin"
 
-# Motors — disabled; OTA to v1.5.0 enables them
-CONFIG_MOTORS_ENABLED=n
+# Motors — servo + stepper enabled (start paused, activate via BLE)
+CONFIG_MOTORS_ENABLED=y
