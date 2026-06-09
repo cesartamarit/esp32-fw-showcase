@@ -423,8 +423,6 @@
       cmdChar        = await service.getCharacteristic(CMD);
       const staChr   = await service.getCharacteristic(STA);
 
-      updateStatus(await staChr.readValue());
-
       await staChr.startNotifications();
       staChr.addEventListener('characteristicvaluechanged', e => {
         updateStatus(e.target.value);
@@ -432,6 +430,7 @@
       });
 
       setUI(true, device.name);
+      updateStatus(await staChr.readValue());
       log(`Connected — ${device.name}`, 'ok');
     } catch(e) {
       document.getElementById('dot').className = 'dot err';
