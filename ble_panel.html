@@ -404,6 +404,7 @@
         optionalServices: [SVC]
       });
       device.addEventListener('gattserverdisconnected', () => {
+        if (!device) return;
         setUI(false);
         device = null; cmdChar = null;
         log('Device disconnected', 'err');

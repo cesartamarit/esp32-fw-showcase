@@ -2,7 +2,7 @@ menu "OTA Manager"
 
     config OTA_MANAGER_FIRMWARE_URL
         string "Firmware update URL"
-        default "http://192.168.1.100:8080/firmware_motors.bin"
+        default "http://192.168.1.100:8080/esp32-fw-showcase.bin"
         help
             URL where the firmware binary is hosted.
             For local demo: run 'python3 -m http.server 8080' in the build dir

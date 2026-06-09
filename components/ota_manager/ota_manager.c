@@ -1,6 +1,7 @@
 #include "ota_manager.h"
 #include "wifi_mgr.h"
 #include "power_mgr.h"
+#include "esp_coexist.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -33,7 +34,12 @@ static void ota_task(void *arg)
 
     power_mgr_block_sleep();  /* prevent deep sleep while updating */
 
-    if (wifi_mgr_connect(20000) != ESP_OK) {
+    /* Give BLE time to send the initial "Downloading" notification, then
+     * tell the coexistence arbiter to favour WiFi for association. */
+    vTaskDelay(pdMS_TO_TICKS(300));
+    esp_coex_preference_set(ESP_COEX_PREFER_WIFI);
+
+    if (wifi_mgr_connect(30000) != ESP_OK) {
         ESP_LOGE(TAG, "WiFi unavailable — OTA aborted");
         set_state(OTA_STATE_FAILED);
         power_mgr_unblock_sleep();

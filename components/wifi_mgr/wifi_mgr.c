@@ -25,6 +25,8 @@ static void event_cb(void *arg, esp_event_base_t base, int32_t id, void *data)
         if (id == WIFI_EVENT_STA_START) {
             esp_wifi_connect();
         } else if (id == WIFI_EVENT_STA_DISCONNECTED) {
+            wifi_event_sta_disconnected_t *d = (wifi_event_sta_disconnected_t *)data;
+            ESP_LOGW(TAG, "disconnected reason=%d rssi=%d", d->reason, d->rssi);
             if (s_retry < MAX_RETRY) {
                 esp_wifi_connect();
                 s_retry++;
@@ -49,7 +51,9 @@ esp_err_t wifi_mgr_init(void)
     ret = esp_event_loop_create_default();
     if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) return ret;
 
-    esp_netif_create_default_wifi_sta();
+    if (!esp_netif_get_handle_from_ifkey("WIFI_STA_DEF")) {
+        esp_netif_create_default_wifi_sta();
+    }
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ret = esp_wifi_init(&cfg);

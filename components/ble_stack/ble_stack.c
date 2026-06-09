@@ -50,6 +50,17 @@ static const ble_uuid128_t STATUS_CHR_UUID =
 static uint16_t s_conn_handle   = BLE_HS_CONN_HANDLE_NONE;
 static uint16_t s_status_handle = 0;
 
+/* One-shot callout to drop the BLE connection before OTA starts WiFi.
+ * Fires 300 ms after CMD_OTA_UPDATE so the GATT response goes out first. */
+static struct ble_npl_callout s_ota_disc_callout;
+
+static void ota_disc_callout_fn(struct ble_npl_event *ev)
+{
+    if (s_conn_handle != BLE_HS_CONN_HANDLE_NONE) {
+        ble_gap_terminate(s_conn_handle, BLE_ERR_REM_USER_CONN_TERM);
+    }
+}
+
 /* --- Command byte definitions --- */
 #define CMD_LED_ON        0x01
 #define CMD_LED_OFF       0x02
@@ -62,10 +73,25 @@ static uint16_t s_status_handle = 0;
 
 static int s_ota_pct = 0;
 
+/* Event used to dispatch OTA progress notifications onto the NimBLE host task.
+ * ble_gatts_notify_custom() is not thread-safe — it must run on the NimBLE
+ * host task.  on_ota_progress() is called from ota_task, so we enqueue an
+ * event instead of calling the notify function directly. */
+static struct ble_npl_event s_ota_notify_event;
+
+static void ota_notify_event_fn(struct ble_npl_event *ev)
+{
+    /* Now executing inside the NimBLE host task — safe to notify. */
+    ble_stack_notify_status();
+}
+
 static void on_ota_progress(ota_state_t state, int pct)
 {
     s_ota_pct = pct;
-    ble_stack_notify_status();
+    /* Coalesce rapid progress ticks: only enqueue if not already pending. */
+    if (!ble_npl_event_is_queued(&s_ota_notify_event)) {
+        ble_npl_eventq_put(nimble_port_get_dflt_eventq(), &s_ota_notify_event);
+    }
 }
 
 /* --- GATT handlers --- */
@@ -301,6 +327,10 @@ esp_err_t ble_stack_init(void)
         ESP_LOGE(TAG, "nimble_port_init failed: %s", esp_err_to_name(ret));
         return ret;
     }
+
+    ble_npl_event_init(&s_ota_notify_event, ota_notify_event_fn, NULL);
+    ble_npl_callout_init(&s_ota_disc_callout, nimble_port_get_dflt_eventq(),
+                         ota_disc_callout_fn, NULL);
 
     ble_hs_cfg.sync_cb  = on_ble_sync;
     ble_hs_cfg.reset_cb = on_ble_reset;
