@@ -52,6 +52,8 @@ static void ota_task(void *arg)
         .timeout_ms        = CONFIG_OTA_MANAGER_RECV_TIMEOUT_MS,
         .keep_alive_enable = true,
         .crt_bundle_attach = esp_crt_bundle_attach,  /* verify HTTPS with Mozilla CA bundle */
+        .buffer_size       = 4096,  /* GitHub redirects to CDN with large headers; default 512 overflows */
+        .buffer_size_tx    = 1024,
     };
 
     esp_https_ota_config_t ota_cfg = {

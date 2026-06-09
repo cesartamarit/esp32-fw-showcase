@@ -198,12 +198,14 @@ esp_err_t motors_init(void)
 
     esp_log_level_set(TAG, ESP_LOG_DEBUG);  /* enable servo/stepper debug prints */
 
-    /* --- Launch tasks --- */
+    /* --- Launch tasks (start suspended — activate via BLE) --- */
     xTaskCreate(servo_task,   "servo",   2048, NULL, 3, &s_servo_task);
     xTaskCreate(stepper_task, "stepper", 2048, NULL, 3, &s_stepper_task);
+    vTaskSuspend(s_servo_task);
+    vTaskSuspend(s_stepper_task);
 
-    s_servo_running   = true;
-    s_stepper_running = true;
+    s_servo_running   = false;
+    s_stepper_running = false;
 
     ESP_LOGI(TAG, "servo on GPIO%d  |  stepper IN1-4: %d %d %d %d",
              SERVO_GPIO, STEP_IN1, STEP_IN2, STEP_IN3, STEP_IN4);

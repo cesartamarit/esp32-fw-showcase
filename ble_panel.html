@@ -141,6 +141,9 @@
     .btn-cmd.red:hover:not(:disabled) { background: #da363318; border-color: #f85149; }
     .btn-cmd.green { color: #3fb950; border-color: #3fb95044; }
     .btn-cmd.green:hover:not(:disabled) { background: #3fb95018; border-color: #3fb950; }
+    .btn-cmd.ota-cta { color: #e3b341; border-color: #d29922; animation: ota-pulse 2s ease-in-out infinite; }
+    .btn-cmd.ota-cta:hover:not(:disabled) { background: #6e400018; border-color: #e3b341; animation: none; }
+    @keyframes ota-pulse { 0%,100% { box-shadow: none; } 50% { box-shadow: 0 0 8px #d2992255; } }
     .btn-cmd .icon { font-size: 14px; line-height: 1; }
 
     /* ── capability badge ── */
@@ -369,21 +372,26 @@
       /* Motor capability */
       hasMotors = j.motors === 1;
       const badge = document.getElementById('motors-badge');
+      const btnOta = document.getElementById('c3');
       if (!hasMotors) {
         badge.style.display = 'inline';
         badge.className = 'cap-badge';
-        badge.textContent = '⚠ OTA to enable';
+        badge.textContent = '⚠ Needs OTA update';
         ['c5','c6','c7','c8'].forEach(id => {
           const btn = document.getElementById(id);
           btn.disabled = true;
-          btn.title = 'Not available in this firmware — trigger OTA Update to enable motors';
+          btn.title = 'Not available — trigger OTA Update to enable motors';
         });
+        btnOta.classList.add('ota-cta');
+        btnOta.title = 'Tap to download v1.5.0 and enable motors';
       } else {
-        badge.style.display = 'none';
-        document.getElementById('c5').disabled = false;
-        document.getElementById('c6').disabled = false;
-        document.getElementById('c7').disabled = false;
-        document.getElementById('c8').disabled = false;
+        badge.style.display = 'inline';
+        badge.className = 'cap-badge ok-badge';
+        badge.textContent = '✓ Enabled';
+        ['c5','c6','c7','c8'].forEach(id =>
+          document.getElementById(id).disabled = false);
+        btnOta.classList.remove('ota-cta');
+        btnOta.title = '';
       }
 
       /* Motor running state dots */
