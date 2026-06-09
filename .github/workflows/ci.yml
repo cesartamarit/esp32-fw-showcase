@@ -122,6 +122,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          make_latest: "true"
           files: |
             firmware/esp32-fw-showcase-*.bin
             firmware/esp32-fw-showcase-*.elf
